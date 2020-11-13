@@ -18,12 +18,19 @@ namespace DiscordBot.Games
 
         public string ImageURL
         {
-            get => "incangold.jpg";
+            get => "https://intentionalgeek.files.wordpress.com/2013/04/incan-gold-box-med.jpg";
         }
 
-        public IncanGoldGame()
+        public ulong ChannelID
         {
+            get => _channelID;
+        }
 
+        private ulong _channelID;
+
+        public IncanGoldGame(ulong channelID)
+        {
+            _channelID = channelID;
         }
 
         public Embed Blurb()
@@ -31,7 +38,7 @@ namespace DiscordBot.Games
             EmbedBuilder builder = new EmbedBuilder
             {
                 Title = "Incan Gold",
-                Description = "*Incan Gold* (also released as *Diamant*) is a multiplayer card game designed by Alan R. Moon and Bruno Faidutti," +
+                Description = "***Incan Gold*** (also released as *Diamant*) is a multiplayer card game designed by Alan R. Moon and Bruno Faidutti," +
                 "published in 2005 in Germany by Schmidt Spiele."
             };
             builder.WithImageUrl(ImageURL)

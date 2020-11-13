@@ -19,6 +19,11 @@ namespace DiscordBot
             get;
         }
 
+        ulong ChannelID
+        {
+            get;
+        }
+
         public Embed Blurb();
     }
 }

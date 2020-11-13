@@ -18,12 +18,19 @@ namespace DiscordBot.Games
 
         public string ImageURL
         {
-            get => "sixnimmt.jpg";
+            get => "https://x.boardgamearena.net/data/themereleases/201107-1937/games/sechsnimmt/200213-1217/img/game_box.png";
         }
 
-        public SixNimmtGame()
+        public ulong ChannelID
         {
+            get => _channelID;
+        }
 
+        private ulong _channelID;
+
+        public SixNimmtGame(ulong channelID)
+        {
+            _channelID = channelID;
         }
 
         public Embed Blurb()
@@ -31,7 +38,7 @@ namespace DiscordBot.Games
             EmbedBuilder builder = new EmbedBuilder
             {
                 Title = "6 Nimmt!",
-                Description = "*6 Nimmt!* (*Sixth Takes!* in German) is a card game for 2–10 players designed by Wolfgang Kramer in 1994 and published by Amigo Spiele."
+                Description = "***6 Nimmt!*** (*Sixth Takes!* in German) is a card game for 2–10 players designed by Wolfgang Kramer in 1994 and published by Amigo Spiele."
             };
             builder.WithImageUrl(ImageURL)
                 .AddField("Playtime", "Fifteen minutes per round.")

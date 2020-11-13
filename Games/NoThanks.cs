@@ -18,12 +18,18 @@ namespace DiscordBot.Games
 
         public string ImageURL
         {
-            get => "nothanks.jpg";
+            get => "https://crystal-cdn3.crystalcommerce.com/photos/5202483/pic2602161_md.jpg";
+        }
+        public ulong ChannelID
+        {
+            get => _channelID;
         }
 
-        public NoThanksGame()
-        {
+        private ulong _channelID;
 
+        public NoThanksGame(ulong channelID)
+        {
+            _channelID = channelID;
         }
 
         public Embed Blurb()
@@ -31,9 +37,9 @@ namespace DiscordBot.Games
             EmbedBuilder builder = new EmbedBuilder
             {
                 Title = "No Thanks!",
-                Description = "*No Thanks!* is a card game for three to seven players designed by Thorsten Gimmler."
+                Description = "***No Thanks!*** is a card game for three to seven players designed by Thorsten Gimmler."
             };
-            builder.WithImageUrl("attachment://" + ImageURL)
+            builder.WithImageUrl(ImageURL)
                 .AddField("Playtime", "Twenty minutes.")
                 .AddField("Overview", "A deck of cards numbered 3 to 35 is shuffled with nine removed at random. " + 
                 "You are given a number of chips, each worth negative one point. " +

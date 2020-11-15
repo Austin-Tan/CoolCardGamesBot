@@ -26,7 +26,7 @@ namespace DiscordBot
         private DiscordSocketClient _client;
 
         // Dictionary mapping channels to active games
-        public Dictionary<ulong, ICardGame> activeGames;
+        public Dictionary<ulong, GameHandler> activeGames;
 
         public async Task MainAsync()
         {
@@ -38,6 +38,7 @@ namespace DiscordBot
             _client = new DiscordSocketClient(config);
             _client.MessageReceived += MessageHandler;
             _client.ReactionAdded += ReactionAdder;
+            _client.ReactionRemoved += ReactionRemover;
             _client.Log += Log;
 
             //  You can assign your bot token to a string, and pass that in to connect.
@@ -52,7 +53,7 @@ namespace DiscordBot
             var token = Environment.GetEnvironmentVariable("DISCORD_TOKEN", EnvironmentVariableTarget.User);
             // Console.WriteLine("token is :" + token);
 
-            activeGames = new Dictionary<ulong, ICardGame>();
+            activeGames = new Dictionary<ulong, GameHandler>();
 
             await _client.LoginAsync(TokenType.Bot, token);
             await _client.StartAsync();
@@ -155,8 +156,7 @@ namespace DiscordBot
                     return Task.CompletedTask;
                 }
 
-
-                launchGame(newGame, message.Channel);
+                launchGame(newGame, message.Channel, message.Author);
             } else
             {
                 if (message.Channel.GetType() == typeof(SocketDMChannel))
@@ -170,22 +170,32 @@ namespace DiscordBot
         }
 
         // Creates and starts a new game of type enumName in passed Discord channel.
-        public void launchGame(DiscardGames enumName, ISocketMessageChannel channel)
+        public async void launchGame(DiscardGames enumName, ISocketMessageChannel channel, SocketUser author)
         {
             if (enumName == DiscardGames.NoThanks)
             {
-                activeGames.Add(channel.Id, new NoThanksGame(channel.Id));
-                channel.SendMessageAsync("Starting a game of No Thanks!", false, activeGames[channel.Id].Blurb());
+                activeGames.Add(channel.Id, new GameHandler(new NoThanksGame()));
+                await channel.SendMessageAsync("Starting a game of No Thanks!", false, activeGames[channel.Id].activeGame.Blurb());
             } else if (enumName == DiscardGames.IncanGold)
             {
-                activeGames.Add(channel.Id, new IncanGoldGame(channel.Id));
-                channel.SendMessageAsync("Starting a game of Incan Gold!", false, activeGames[channel.Id].Blurb());
+                activeGames.Add(channel.Id, new GameHandler(new IncanGoldGame()));
+                await channel.SendMessageAsync("Starting a game of Incan Gold!", false, activeGames[channel.Id].activeGame.Blurb());
             } else if (enumName == DiscardGames.SixNimmt)
             {
-                activeGames.Add(channel.Id, new SixNimmtGame(channel.Id));
-                channel.SendMessageAsync("Starting a game of 6 Nimmt!", false, activeGames[channel.Id].Blurb());
+                activeGames.Add(channel.Id, new GameHandler(new SixNimmtGame()));
+                await channel.SendMessageAsync("Starting a game of 6 Nimmt!", false, activeGames[channel.Id].activeGame.Blurb());
+            } else
+            {
+                await channel.SendMessageAsync("this is bad i'm in an else case i shouldn't ever be in.");
+                return;
             }
 
+            GameHandler handler = activeGames[channel.Id];
+            
+            var reactTo = await channel.SendMessageAsync("React to this message with 👍 to join!\nCurrent Players: ");
+            await reactTo.AddReactionAsync(new Emoji("👍"));
+
+            handler.messageMap.Add(reactTo.Id, handler.JoinGameMessage);
         }
 
         //public static string enumToFormalName(DiscardGames enumName) {
@@ -262,7 +272,7 @@ namespace DiscordBot
                     Console.WriteLine("On a kill message");
                     if (reaction.Emote.Name == new Emoji("🗑️").Name || reaction.Emote.Name == new Emoji("🗑").Name)
                     {
-                        channel.SendMessageAsync($"Game of ***{activeGames[channel.Id].Name}*** deleted 🗑️");
+                        channel.SendMessageAsync($"Game of ***{activeGames[channel.Id].activeGame.Name}*** deleted 🗑️");
                         activeGames.Remove(channel.Id);
                     } else
                     {
@@ -270,14 +280,22 @@ namespace DiscordBot
                         channel.DeleteMessageAsync(msg.Id);
                     }
                     channel.DeleteMessageAsync(msg.Id);
+                } else
+                {
+                    Console.WriteLine("Hitting the map now with react by " + reaction.User.Value.Username);
+                    activeGames[channel.Id].messageMap[msg.Id](msg, reaction.User.Value);
                 }
             }
-            
-            
             return Task.CompletedTask;
         }
 
-        private Task MessageHandler(SocketMessage message)
+        private Task ReactionRemover(Cacheable<IUserMessage, ulong> cache, ISocketMessageChannel channel, SocketReaction reaction)
+        {
+
+            return Task.CompletedTask;
+        }
+
+            private Task MessageHandler(SocketMessage message)
         {
             if (!message.Content.StartsWith('!'))
             {

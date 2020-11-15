@@ -9,31 +9,37 @@ using System.Threading.Tasks;
 
 namespace DiscordBot.Games
 {
-    public class SixNimmtGame: ICardGame
+    public class SixNimmtGame: CardGame
     {
+        public override int MinPlayers
+        {
+            get => 2;
+        }
+        public override int MaxPlayers
+        {
+            get => 10;
+        }
+
+        public override void StartGame()
+        {
+
+        }
+
         public string Name
         {
             get => "6 Nimmt!";
         }
 
-        public string ImageURL
+        public static string ImageURL
         {
             get => "https://x.boardgamearena.net/data/themereleases/201107-1937/games/sechsnimmt/200213-1217/img/game_box.png";
         }
 
-        public ulong ChannelID
+        public SixNimmtGame()
         {
-            get => _channelID;
         }
 
-        private ulong _channelID;
-
-        public SixNimmtGame(ulong channelID)
-        {
-            _channelID = channelID;
-        }
-
-        public Embed Blurb()
+        public override Embed Blurb()
         {
             EmbedBuilder builder = new EmbedBuilder
             {

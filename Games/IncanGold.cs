@@ -9,8 +9,17 @@ using System.Threading.Tasks;
 
 namespace DiscordBot.Games
 {
-    public class IncanGoldGame: ICardGame
+    public class IncanGoldGame: CardGame
     {
+        public override int MinPlayers
+        {
+            get => 3;
+        }
+        public override int MaxPlayers
+        {
+            get => 8;
+        }
+
         public string Name
         {
             get => "Incan Gold";
@@ -21,24 +30,16 @@ namespace DiscordBot.Games
             get => "https://intentionalgeek.files.wordpress.com/2013/04/incan-gold-box-med.jpg";
         }
 
-        public ulong ChannelID
+        public IncanGoldGame()
         {
-            get => _channelID;
         }
 
-        private ulong _channelID;
-
-        public IncanGoldGame(ulong channelID)
-        {
-            _channelID = channelID;
-        }
-
-        public Embed Blurb()
+        public override Embed Blurb()
         {
             EmbedBuilder builder = new EmbedBuilder
             {
                 Title = "Incan Gold",
-                Description = "***Incan Gold*** (also released as *Diamant*) is a multiplayer card game designed by Alan R. Moon and Bruno Faidutti," +
+                Description = "***Incan Gold*** (also released as *Diamant*) is a game for 3-8 players designed by Alan R. Moon and Bruno Faidutti," +
                 "published in 2005 in Germany by Schmidt Spiele."
             };
             builder.WithImageUrl(ImageURL)
@@ -50,6 +51,11 @@ namespace DiscordBot.Games
                 "2) Safely exit the temple, banking every gem earned this round but sitting out til the next one.\n" + 
                 "The **GOAL of the game** is to amass the most gems over five rounds!");
             return builder.Build();
+        }
+
+        public override void StartGame()
+        {
+            throw new NotImplementedException();
         }
     }
 }

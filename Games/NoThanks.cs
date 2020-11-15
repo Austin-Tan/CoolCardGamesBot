@@ -9,8 +9,17 @@ using System.Threading.Tasks;
 
 namespace DiscordBot.Games
 {
-    public class NoThanksGame: ICardGame
+    public class NoThanksGame: CardGame
     {
+        public override int MinPlayers
+        {
+            get => 3;
+        }
+        public override int MaxPlayers
+        {
+            get => 7;
+        }
+
         public string Name
         {
             get => "No Thanks!";
@@ -20,19 +29,12 @@ namespace DiscordBot.Games
         {
             get => "https://crystal-cdn3.crystalcommerce.com/photos/5202483/pic2602161_md.jpg";
         }
-        public ulong ChannelID
+
+        public NoThanksGame()
         {
-            get => _channelID;
         }
 
-        private ulong _channelID;
-
-        public NoThanksGame(ulong channelID)
-        {
-            _channelID = channelID;
-        }
-
-        public Embed Blurb()
+        public override Embed Blurb()
         {
             EmbedBuilder builder = new EmbedBuilder
             {
@@ -48,6 +50,15 @@ namespace DiscordBot.Games
                 "2) Take the card and add its value to your total score. You keep any chips on the card for later use.\n" + 
                 "The **GOAL of the game** is to have the fewest points, so minimize taking cards and maximize your number of chips!");
             return builder.Build();
+        }
+
+
+
+        public override void StartGame()
+        {
+            // Add players
+            // prepare deck
+            // queue or array of players
         }
     }
 }

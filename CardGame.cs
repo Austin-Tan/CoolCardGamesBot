@@ -7,9 +7,17 @@ using System.Threading.Tasks;
 
 namespace DiscordBot
 {
-    interface ICardGame
+    public abstract class CardGame
     {
-        string Name
+        public abstract int MinPlayers
+        {
+            get;
+        }
+        public abstract int MaxPlayers
+        {
+            get;
+        }
+        public string Name
         {
             get;
         }
@@ -19,11 +27,17 @@ namespace DiscordBot
             get;
         }
 
-        ulong ChannelID
+        public virtual Embed Blurb()
         {
-            get;
+            EmbedBuilder builder = new EmbedBuilder
+            {
+                Title = $"{Name}",
+                Description = $"***{Name}*** is a game for {MinPlayers}-{MaxPlayers} players."
+            };
+            return builder.WithImageUrl(ImageURL).Build();
         }
 
-        public Embed Blurb();
+        public abstract void StartGame();
+
     }
 }

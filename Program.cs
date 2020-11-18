@@ -66,23 +66,8 @@ namespace DiscordBot {
                 return Task.CompletedTask;
             }
 
-            ulong msgId = reaction.MessageId;
-
-            //IUserMessage msg;
-            //if (reaction.Message.IsSpecified) {
-            //    msg = reaction.Message.Value;
-            //} else {
-            //    var preCast = channel.GetCachedMessage(reaction.MessageId);
-            //    if (preCast == null) {
-            //        throw new KeyNotFoundException("Couldn't find target message in the cache.");
-            //    }
-            //    var castedMsg = preCast as IUserMessage;
-            //    msg = castedMsg ?? throw new InvalidCastException("Could not cast SocketMessage to IUSerMessage");
-            //}
-
             ChannelHandler handler = GetChannelHandler(channel);
-
-            handler.ProcessReaction(msgId, reaction.Emote.Name, reaction.UserId, adding);
+            handler.ProcessReaction(reaction.MessageId, reaction.Emote.Name, reaction.UserId, adding);
 
             return Task.CompletedTask;
         }
@@ -103,7 +88,42 @@ namespace DiscordBot {
                 return Task.CompletedTask;
             }
 
-            return RouteMessage(message.Content.Substring(1).Trim(), message);
+            string command = message.Content.Substring(1).ToLower().Trim();
+            if (command.StartsWith("test")) {
+                // any test things do here
+
+            } else if (command.StartsWith("help")) {
+                message.Channel.SendMessageAsync(null, false, HelpMessage());
+            } else if (command.StartsWith("bugsnax")) {
+                SendBugsnax(message);
+            } else {
+                ChannelHandler handler = GetChannelHandler(message.Channel);
+                handler.ProcessMessage(message, command);
+            }
+
+            return Task.CompletedTask;
+        }
+
+        private Embed HelpMessage() {
+            EmbedBuilder builder = new EmbedBuilder {
+                Title = "HELP - Discard Bot",
+                Description = "List of commands:",
+            };
+            builder.WithAuthor(_client.CurrentUser)
+                .AddField("!help", "gives you this messsage!")
+                .AddField("!play GameName", "WIP. Hopefully starts a game of GameName for you.")
+                .AddField("List of games for !play:", "No Thanks!")
+                .AddField("!rules", "NOT IMPLEMENTED")
+                .AddField("!status", "NOTIMPLEMENTED")
+                .WithColor(Color.Orange);
+            return builder.Build();
+        }
+
+        private void SendBugsnax(SocketMessage message) {
+            message.Channel.SendMessageAsync("it's bugsnax, " + message.Author.Mention);
+            message.AddReactionAsync(new Emoji("\U0001f495"));
+            Task<RestUserMessage> sent = message.Channel.SendFileAsync("bugsnax.jpg");
+            sent.Result.AddReactionsAsync(new IEmote[] { new Emoji("🇧"), new Emoji("🇺"), new Emoji("🇬") });
         }
 
         private Task RouteMessage(string command, SocketMessage message) {
@@ -111,51 +131,8 @@ namespace DiscordBot {
             Console.WriteLine($"{author} asked:\n{command}");
 
             if (command.ToLower().Trim() == "test") {
-                string imageURL = "https://www.pojo.com/wp-content/uploads/2018/01/no-thanks-box-art.jpg";
-                EmbedBuilder builder = new EmbedBuilder { ImageUrl = $"attachment://{imageURL}" };
-                Embed emb = builder.Build();
-                message.Channel.SendMessageAsync("msg1");
-                message.Channel.SendMessageAsync(null, false, emb);
-
-                //imageURL = "D:/GameDev/DiscordBot/bin/Debug/net5.0/nothanks.jpg";
-
-                builder.WithImageUrl($"{imageURL}");
-                message.Channel.SendMessageAsync("msg2");
-                message.Channel.SendMessageAsync(null, false, builder.Build());
-            } else if (command.ToLower().Trim() == "help") {
-                EmbedBuilder builder = new EmbedBuilder {
-                    Title = "HELP - Cool Card Games Bot",
-                    Description = "List of commands:",
-                };
-                builder.WithAuthor(_client.CurrentUser)
-                    .AddField("!help", "gives you this messsage!")
-                    .AddField("!play GameName", "WIP. Hopefully starts a game of GameName for you.")
-                    .AddField("!echo abcdefg...", "makes me say something")
-                    .AddField("!bugsnax", "try it for a surprise image! *1% chance of losing all your primogems*")
-                    .AddField("List of games for !play:", "No Thanks!, 6 Nimmt!, Incan Gold")
-                    .WithColor(Color.Orange);
-                Embed msg = builder.Build();
-
-                message.Channel.SendMessageAsync(null, false, msg);
-            } else if (command.ToLower().Trim() == "bugsnax") {
-                message.Channel.SendMessageAsync("it's bugsnax, " + message.Author.Mention);
-                message.AddReactionAsync(new Emoji("\U0001f495"));
-
-                Task<RestUserMessage> sent = message.Channel.SendFileAsync("bugsnax.jpg");
-
-
-                sent.Result.AddReactionsAsync(new IEmote[] { new Emoji("🇧"), new Emoji("🇺"), new Emoji("🇬") });
-            } else if (command.Split(' ')[0].ToLower() == "echo") {
-                string toSend = command.Substring(command.ToLower().IndexOf("echo ") + "echo ".Length);
-                message.Channel.SendMessageAsync(toSend + "\n- " + message.Author.Mention);
             } else if (command.ToLower().Trim().StartsWith("kill")) {
-                if (activeGames.ContainsKey(message.Channel.Id)) {
-                    Task<RestUserMessage> sent = message.Channel.SendMessageAsync("Do you really want to kill this game?\n" +
-                        "🗑️ to confirm deletion. 👎 to keep playing.");
-                    sent.Result.AddReactionsAsync(new IEmote[] { new Emoji("👎"), new Emoji("🗑️") });
-                } else {
-                    message.Channel.SendMessageAsync("Could not find a game running in this channel to kill!");
-                }
+
             } else if (command.Split(' ')[0].ToLower() == "play") {
                 // find right game/validate string
                 string gameName = command.Substring(command.ToLower().IndexOf("play ") + "play ".Length);
@@ -188,7 +165,6 @@ namespace DiscordBot {
                         " 😓 Try !help for assistance.");
                 }
             }
-
             return Task.CompletedTask;
         }
 

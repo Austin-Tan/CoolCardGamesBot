@@ -9,13 +9,13 @@ using System.Threading.Tasks;
 
 namespace DiscordBot.Games
 {
-    public class NoThanksGame: CardGame
+    public class NoThanksGame
     {
-        public override int MinPlayers
+        public int MinPlayers
         {
             get => 3;
         }
-        public override int MaxPlayers
+        public int MaxPlayers
         {
             get => 7;
         }
@@ -34,7 +34,7 @@ namespace DiscordBot.Games
         {
         }
 
-        public override Embed Blurb()
+        public Embed Blurb()
         {
             EmbedBuilder builder = new EmbedBuilder
             {
@@ -54,7 +54,7 @@ namespace DiscordBot.Games
 
 
 
-        public override void StartGame()
+        public void StartGame()
         {
             // Add players
             // prepare deck

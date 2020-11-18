@@ -22,7 +22,6 @@ namespace DiscordBot {
         public Dictionary<ulong, ChannelHandler> activeChannels;
 
         public async Task MainAsync() {
-
             DiscordSocketConfig config = new DiscordSocketConfig { MessageCacheSize = 64, GuildSubscriptions = false };
             // When Discord.Net.WebSocket receives a stable update to include GatewayIntents, add here
             // and unsub from typing, etc. instead of guildsubscriptions
@@ -48,11 +47,21 @@ namespace DiscordBot {
             await Task.Delay(-1);
         }
 
-        private Task Log(LogMessage msg) {
+        private Task Log(LogMessage message) {
+            Console.WriteLine($"[General/{message.Severity}] {message}");
             return Task.CompletedTask;
         }
 
+
         private ChannelHandler GetChannelHandler(ISocketMessageChannel channel) {
+            // check that we're in a server text channel
+            if (channel.GetType() != typeof(SocketTextChannel)) {
+                channel.SendMessageAsync(
+                    "Sorry, **Discard Games Bot** is not available for" +
+                    "channels of type " + channel.GetType());
+                return null;
+            }
+
             ulong id = channel.Id;
             if (!activeChannels.ContainsKey(id)) {
                 activeChannels.Add(id, new ChannelHandler(channel));
@@ -60,14 +69,16 @@ namespace DiscordBot {
             return activeChannels[id];
         }
 
-        private Task ReactionRouter( ISocketMessageChannel channel, SocketReaction reaction, bool adding) {
-            // This is a reaction we added ourselves. Ignore it.
+        private Task ReactionRouter(ISocketMessageChannel channel, SocketReaction reaction, bool adding) {
+            // this is a reaction we added ourselves. Ignore it.
             if (reaction.UserId == _client.CurrentUser.Id) {
                 return Task.CompletedTask;
             }
 
             ChannelHandler handler = GetChannelHandler(channel);
-            handler.ProcessReaction(reaction.MessageId, reaction.Emote.Name, reaction.UserId, adding);
+            if (handler != null) {
+                handler.ProcessReaction(reaction.MessageId, reaction.Emote.Name, reaction.UserId, adding);
+            }
 
             return Task.CompletedTask;
         }
@@ -98,7 +109,9 @@ namespace DiscordBot {
                 SendBugsnax(message);
             } else {
                 ChannelHandler handler = GetChannelHandler(message.Channel);
-                handler.ProcessMessage(message, command);
+                if (handler != null) {
+                    handler.ProcessMessage(message, command);
+                }
             }
 
             return Task.CompletedTask;
@@ -126,69 +139,8 @@ namespace DiscordBot {
             sent.Result.AddReactionsAsync(new IEmote[] { new Emoji("🇧"), new Emoji("🇺"), new Emoji("🇬") });
         }
 
-        private Task RouteMessage(string command, SocketMessage message) {
-            string author = message.Author.Username;
-            Console.WriteLine($"{author} asked:\n{command}");
-
-            if (command.ToLower().Trim() == "test") {
-            } else if (command.ToLower().Trim().StartsWith("kill")) {
-
-            } else if (command.Split(' ')[0].ToLower() == "play") {
-                // find right game/validate string
-                string gameName = command.Substring(command.ToLower().IndexOf("play ") + "play ".Length);
-                DiscardGames newGame = findGameFromString(gameName);
-
-                // make sure it's an actually implemented game
-                if (newGame == DiscardGames.NOTFOUND) {
-                    message.Channel.SendMessageAsync("Sorry, I couldn't find " + gameName + " 😓 Please try again!");
-                    return Task.CompletedTask;
-                }
-
-                // make sure you're in a group or text channel
-                if (message.Channel.GetType() != typeof(SocketTextChannel) && message.Channel.GetType() != typeof(SocketGroupChannel)) {
-                    message.Channel.SendMessageAsync("Sorry, !play is not available for channels of type " + message.Channel.GetType());
-                    return Task.CompletedTask;
-                }
-
-
-                // check that the channel doesn't already have a game running
-                if (activeGames.ContainsKey(message.Channel.Id)) {
-                    message.Channel.SendMessageAsync("Looks like this channel is already running a game! 😓 " +
-                        "Please finish the current one, or -play in a different text channel!");
-                    return Task.CompletedTask;
-                }
-
-                launchGame(newGame, message.Channel, message.Author);
-            } else {
-                if (message.Channel.GetType() == typeof(SocketDMChannel)) {
-                    message.Channel.SendMessageAsync("Sorry I didn't seem to understand your message!" +
-                        " 😓 Try !help for assistance.");
-                }
-            }
-            return Task.CompletedTask;
-        }
-
-        // Creates and starts a new game of type enumName in passed Discord channel.
-        public async void launchGame(DiscardGames enumName, ISocketMessageChannel channel, SocketUser author) {
-            if (enumName == DiscardGames.NoThanks) {
-                activeGames.Add(channel.Id, new GameHandler(new NoThanksGame()));
-                await channel.SendMessageAsync("Starting a game of No Thanks!", false, activeGames[channel.Id].activeGame.Blurb());
-            } else {
-                await channel.SendMessageAsync("this is bad i'm in an else case i shouldn't ever be in.");
-                return;
-            }
-
-            GameHandler handler = activeGames[channel.Id];
-
-            var reactTo = await channel.SendMessageAsync("React to this message with 👍 to join!\nCurrent Players: ");
-            await reactTo.AddReactionAsync(new Emoji("👍"));
-
-            handler.messageMap.Add(reactTo.Id, handler.JoinGameMessage);
-        }
-
-        public static DiscardGames findGameFromString(string toFind) {
-            toFind = toFind.Trim().ToLower().Replace(" ", string.Empty);
-            Console.WriteLine("toFind looks like:\n" + toFind);
+        public static DiscardGames FindGameFromString(string toFind) {
+            toFind = toFind.Replace(" ", string.Empty);
             if (toFind == "nothanks" || toFind == "nothanks!") {
                 return DiscardGames.NoThanks;
             }

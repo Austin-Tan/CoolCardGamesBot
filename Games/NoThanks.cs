@@ -9,8 +9,7 @@ using System.Threading.Tasks;
 
 namespace DiscordBot.Games
 {
-    public class NoThanksGame
-    {
+    public class NoThanksGame : GameInterface {
         public int MinPlayers
         {
             get => 3;
@@ -30,8 +29,11 @@ namespace DiscordBot.Games
             get => "https://crystal-cdn3.crystalcommerce.com/photos/5202483/pic2602161_md.jpg";
         }
 
-        public NoThanksGame()
+        private ChannelHandler parentChannel;
+        
+        public NoThanksGame(ChannelHandler handler)
         {
+            parentChannel = handler;
         }
 
         public Embed Blurb()

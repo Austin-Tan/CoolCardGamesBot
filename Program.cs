@@ -9,6 +9,7 @@ using System.Threading.Tasks;
 namespace DiscordBot {
     public enum DiscardGames {
         NoThanks,
+        IncanGold,
         NOTFOUND
     }
 
@@ -125,7 +126,7 @@ namespace DiscordBot {
             builder.WithAuthor(_client.CurrentUser)
                 .AddField("!help", "gives you this messsage!")
                 .AddField("!play GameName", "WIP. Hopefully starts a game of GameName for you.")
-                .AddField("List of games for !play:", "No Thanks!")
+                .AddField("List of games for !play:", "***No Thanks!***, ***Incan Gold***")
                 .AddField("!rules", "NOT IMPLEMENTED")
                 .AddField("!status", "NOTIMPLEMENTED")
                 .WithColor(Color.Orange);
@@ -143,6 +144,8 @@ namespace DiscordBot {
             toFind = toFind.Replace(" ", string.Empty);
             if (toFind == "nothanks" || toFind == "nothanks!") {
                 return DiscardGames.NoThanks;
+            } else if (toFind == "incangold") {
+                return DiscardGames.IncanGold;
             }
             return DiscardGames.NOTFOUND;
         }

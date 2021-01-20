@@ -17,25 +17,25 @@ namespace DiscordBot
         KillMessage
     }
 
-    class ChannelHandler
+    public class ChannelHandler
     {
         // We could choose to go to a higher interface like ISocketMessageChannel
         // but I think we always want this more specific scope.
-        SocketTextChannel channel;
+        public SocketTextChannel channel;
 
         public ChannelStatus status;
 
         // the keys are the messageIds - delegates for handling reactions
-        private Dictionary<ulong, Action<ulong, string, ulong, bool>> messages;
+        public Dictionary<ulong, Action<ulong, string, ulong, bool>> messages;
 
         // discord userIds and Users playing the game!
-        private Dictionary<ulong, IUser> players;
+        public Dictionary<ulong, IUser> players;
 
         // these two are just used for the lobby
         private LinkedList<string> orderedPlayers;
         private RestUserMessage lobbyRestMessage; // only used for !kill, super clunky
 
-        private NoThanksGame runningGame;
+        private GameInterface runningGame;
 
         public ChannelHandler(ISocketMessageChannel newChannel)
         {
@@ -57,6 +57,8 @@ namespace DiscordBot
         // not yet implemented to kill the game
         private void EndGame() {
             status = ChannelStatus.Listening;
+            players = new Dictionary<ulong, IUser>();
+            orderedPlayers = new LinkedList<string>();
             runningGame = null;
         }
 
@@ -74,7 +76,7 @@ namespace DiscordBot
                 _ = PlayGame(message, command.Substring(command.IndexOf("play") + "play".Length).Trim());
             } else {
                 _ = channel.SendMessageAsync(
-                    "Sorry, !" + command.Split(' ')[0] + " has not been" +
+                    "Sorry, !" + command.Split(' ')[0] + " has not been " +
                     "implemented 😓 Try !help for a list of commands.");
             }
         }
@@ -93,7 +95,6 @@ namespace DiscordBot
                     "Sorry, I couldn't find " + gameToFind + " 😓 Please try" +
                     "again or run !help for a list of games you can !play.");
             } else {
-                // hard coding no thanks
                 _ = StartLobby(game);
             }
         }
@@ -103,7 +104,9 @@ namespace DiscordBot
         // make sure you don't pass DiscardGames.NOTFOUND to this method
         private async Task StartLobby(DiscardGames targetGame) {
             if (targetGame == DiscardGames.NoThanks) {
-                runningGame = new NoThanksGame();
+                runningGame = new NoThanksGame(this);
+            } else if (targetGame == DiscardGames.IncanGold) {
+                runningGame = new IncanGoldGame(this);
             }
             status = ChannelStatus.WaitingLobby;
 
@@ -124,11 +127,9 @@ namespace DiscordBot
 
 
         private async void ReactJoinMessage(ulong messageId, string emote, ulong userId, bool adding) {
-            if (emote == "👍") {
+            if (emote == "👍" && status == ChannelStatus.WaitingLobby) {
                 if (adding) {
                     players.Add(userId, await GetUser(userId));
-                    Console.WriteLine("is this null? : " + channel.GetUser(userId));
-                    Console.WriteLine("WHat about this? : " + players[userId]);
                     orderedPlayers.AddLast(GetUsername(userId));
                 } else {
                     players.Remove(userId);
@@ -137,15 +138,21 @@ namespace DiscordBot
                 UpdateLobbyMessage();
             
             /// *** STARTS THE GAME ***
-            } else if (emote == "✅" && adding) {
+            /// This needs to be updated so that it only works when we have enough players to start
+            /// the game
+            } else if (emote == "✅" && adding && status == ChannelStatus.WaitingLobby
+                && playerAuthorizedToStart != null && playerAuthorizedToStart == GetUsername(userId)) {
                 await channel.DeleteMessageAsync(messageId);
                 messages.Remove(messageId);
                  await channel.SendMessageAsync(
                     "Starting a game of " + runningGame.Name + " with " +
-                    string.Join<string>(", ", orderedPlayers));
+                    string.Join<string>(", ", orderedPlayers) + "   🎉");
+                runningGame.StartGame();
                 status = ChannelStatus.Playing;
             }
         }
+
+        private string playerAuthorizedToStart;
 
         private async void UpdateLobbyMessage() {
             if (lobbyRestMessage != null) {
@@ -153,13 +160,16 @@ namespace DiscordBot
                 int count = players.Count;
                 playerString += $"\nWe have {count} players.";
                 if (count >= runningGame.MinPlayers && count <= runningGame.MaxPlayers) {
-                    playerString += $" {orderedPlayers.First}, react with ✅ to begin!";
+                    playerString += $" {orderedPlayers.First.Value}, react with ✅ to begin!";
                     await lobbyRestMessage.AddReactionAsync(new Emoji("✅"));
+                    playerAuthorizedToStart = orderedPlayers.First.Value;
+                } else {
+                    playerAuthorizedToStart = null;
                 }
                 await lobbyRestMessage.ModifyAsync(x => 
                     x.Content = JoinGameMessage + playerString);
             } else {
-                Console.WriteLine("Error! couldn't cast or find Lobby message");
+                Console.WriteLine("Error! Couldn't cast or find Lobby message");
             }
         }
 
@@ -197,15 +207,16 @@ namespace DiscordBot
         }
 
         private async Task<IUser> GetUser(ulong userId) {
-            var castChannel = channel as IGuildChannel;
+            var castChannel = channel as ISocketMessageChannel;
             if (castChannel != null) {
                 var user = await castChannel.GetUserAsync(userId, CacheMode.AllowDownload);
                 var castUser = user as IUser;
                 if (castUser != null) {
                     return castUser;
                 }
+                throw new InvalidCastException("Can't cast user as IUser");
             }
-            throw new InvalidCastException("Can't cast channel to guildchannel");
+            throw new InvalidCastException("Can't cast channel to ISocketMessageChannel");
         }
 
         private string GetUsername(ulong userId) {

@@ -62,5 +62,9 @@ namespace DiscordBot.Games
             // prepare deck
             // queue or array of players
         }
+
+        public void EndGame() {
+            parentChannel.EndGame(true);
+        }
     }
 }

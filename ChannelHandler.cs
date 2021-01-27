@@ -54,11 +54,13 @@ namespace DiscordBot
         }
 
 
-        // not yet implemented to kill the game
-        private void EndGame() {
+        public void EndGame(bool concluded = false) {
             status = ChannelStatus.Listening;
             players = new Dictionary<ulong, IUser>();
             orderedPlayers = new LinkedList<string>();
+            if (!concluded) {
+                runningGame.EndGame();
+            }
             runningGame = null;
         }
 

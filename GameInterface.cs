@@ -26,5 +26,7 @@ namespace DiscordBot {
         public Embed Blurb();
 
         public void StartGame();
+
+        public void EndGame();
     }
 }

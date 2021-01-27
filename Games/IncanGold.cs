@@ -218,46 +218,80 @@ namespace DiscordBot.Games {
                     "\n⛺ to go home and bank your gems. 🤠 to continue delving.");
                 }
                 idToAction = new Dictionary<ulong, bool>();
-                timerOn = false;
+                
                 await roundMessage.ModifyAsync(m => m.Embed = PrettyPrint());
                 await reactMessage.RemoveAllReactionsAsync();
                 await reactMessage.AddReactionsAsync(new IEmote[] { new Emoji("⛺"), new Emoji("🤠") });
             }
         }
 
-        private async void DelveMessage(ulong messageId, string emote, ulong userId, bool adding) {
-            if (emote == "⛺" || emote == "🤠") {
-                Console.WriteLine(" Pre secret timer");
-                Task bar = SecretTimer();
-                Console.WriteLine(" post secret timer");
-                if (adding) {
-                    idToAction.Add(userId, emote == "🤠");
-                    if (idToAction.Count == remainingPlayers.Count()) {
-                        if (!timerOn) {
-                            StartTimer(5);
+        private void EndTurn() {
+            Console.WriteLine("Ending turn with players:\n" + players);
+            Console.WriteLine("\n\nRemaining players:\n" + remainingPlayers);
+            List<Player> newRemaining = new List<Player>();
+            foreach(Player player in remainingPlayers) {
+                if (idToAction.ContainsKey(player.id) && idToAction[player.id]) {
+                    // player remains!
+                    newRemaining.Add(player);
+                } else {
+                    player.bankedGems += player.heldGems;
+                    player.heldGems = 0;
+                }
+            }
+            remainingPlayers = newRemaining.ToArray();
+            if (remainingPlayers.Length == 0) {
+                NewRound();
+            } else {
+                DrawCard();
+            }
+        }
+
+        bool secretTimerOn = false;
+        bool realTimerOn = false;
+
+        private void BackgroundLoop() {
+            int realCounter = 10;
+            while (true) {
+                Thread.Sleep(1000);
+                realCounter--;
+                if (realTimerOn) {
+                    if (realCounter > 3) {
+                        realCounter = 3;
+                    }
+                }
+
+                if (realCounter > 0 && realCounter <= 5) {
+                    reactMessage.ModifyAsync(m => m.Content += $" {realCounter}...");
+                } else if (realCounter == 0) {
+                    EndTurn();
+                    break;
+                }
+            }
+            realTimerOn = false;
+            secretTimerOn = false;
+        }
+
+        private void DelveMessage(ulong messageId, string emote, ulong userId, bool adding) {
+            if (idToPlayer.ContainsKey(userId) && remainingPlayers.Contains<Player>(idToPlayer[userId])) {
+                if (emote == "⛺" || emote == "🤠") {
+                    if (!secretTimerOn) {
+                        secretTimerOn = true;
+                        Task bar = new Task(BackgroundLoop);
+                        bar.Start();
+                    }
+                    if (adding) {
+                        if (idToAction.Remove(userId)) {
+                            reactMessage.RemoveReactionAsync(new Emoji((emote == "🤠") ? "⛺": "🤠"), userId);
                         }
+                        idToAction.Add(userId, emote == "🤠");
+                        if (idToAction.Count == remainingPlayers.Count()) {
+                            realTimerOn = true;
+                        }
+                    } else {
+                        idToAction.Remove(userId);
                     }
                 }
             }
-        }
-
-        private bool timerOn = false;
-        private Task SecretTimer() {
-            Thread.Sleep(5000);
-            //StartTimer(5);
-            return Task.CompletedTask;
-        }
-
-        private void StartTimer(int time = 5) {
-            timerOn = true;
-            reactMessage.ModifyAsync(m => m.Content += $" {time}...");
-            for (int i = time; i > 0; i++ ) {
-                Thread.Sleep(1000);
-                reactMessage.ModifyAsync(m => m.Content += $" {i}...");
-            }
-            Thread.Sleep(1000);
-
-            DrawCard();
         }
 
         public readonly int[] gemsDistribution = { 1, 2, 3, 4, 5, 5, 7, 7, 9, 11, 11, 13, 14, 15, 17 };
@@ -288,6 +322,22 @@ namespace DiscordBot.Games {
                 deck[k] = deck[n];
                 deck[n] = value;
             }
+        }
+        public void EndGame() {
+            foreach (Player player in players) {
+                player.bankedGems += player.heldGems;
+                player.heldGems = 0;
+            }
+            IEnumerable<Player> query = players.OrderBy(player => -1 * player.bankedGems);
+            EmbedBuilder bd = new EmbedBuilder();
+            bd.Title = $"Game Over - {query.First().username} wins!";
+            string scoreboard = "";
+            for (int i = 1; i <= query.Count(); i++) {
+                scoreboard += $"\n{i}. {query.ElementAt(i - 1).username} - {query.ElementAt(i - 1).bankedGems} gems!";
+            }
+            bd.AddField("Scoreboard", scoreboard);
+            parentChannel.channel.SendMessageAsync(null, false, bd.Build());
+            parentChannel.EndGame(true);
         }
 
 
@@ -323,6 +373,10 @@ namespace DiscordBot.Games {
                 inTemple = false;
                 bankedGems = 0;
                 heldGems = 0;
+            }
+
+            public override string ToString() {
+                return $"{username}: {heldGems} {bankedGems}";
             }
         }
 

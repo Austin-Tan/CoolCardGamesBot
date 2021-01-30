@@ -84,30 +84,34 @@ namespace DiscordBot.Games {
 
 
         public async void NewRound() {
-            if (round != 0) {
-                foreach (Card card in revealedCards) {
-                    if (card.type == CardType.Hazard) {
-                        deck.Add(card);
-                    } else if (card.type == CardType.Treasure) {
-                        card.remainder = 0;
-                        deck.Add(card);
+            if (round != 5) {
+                if (round != 0) {
+                    foreach (Card card in revealedCards) {
+                        if (card.type == CardType.Hazard) {
+                            deck.Add(card);
+                        } else if (card.type == CardType.Treasure) {
+                            card.remainder = 0;
+                            deck.Add(card);
+                        }
                     }
                 }
+                round++;
+
+                deck.Add(new Card(CardType.Relic));
+                ShuffleDeck();
+
+                foreach (Player player in players) {
+                    player.heldGems = 0;
+                }
+                remainingPlayers = players;
+                trippedHazards = new HashSet<HazardType>();
+                revealedCards = new List<Card>();
+
+                roundMessage = await parentChannel.channel.SendMessageAsync(null, false, PrettyPrint());
+                DrawCard(true);
+            } else {
+                EndGame();
             }
-            round++;
-
-            deck.Add(new Card(CardType.Relic));
-            ShuffleDeck();
-
-            foreach (Player player in players) {
-                player.heldGems = 0;
-            }
-            remainingPlayers = players;
-            trippedHazards = new HashSet<HazardType>();
-            revealedCards = new List<Card>();
-
-            roundMessage = await parentChannel.channel.SendMessageAsync(null, false, PrettyPrint());
-            DrawCard(true);
         }
 
         public Embed PrettyPrint() {
@@ -226,9 +230,8 @@ namespace DiscordBot.Games {
         }
 
         private void EndTurn() {
-            Console.WriteLine("Ending turn with players:\n" + players);
-            Console.WriteLine("\n\nRemaining players:\n" + remainingPlayers);
             List<Player> newRemaining = new List<Player>();
+            List<Player> goingHome = new List<Player>();
             foreach(Player player in remainingPlayers) {
                 if (idToAction.ContainsKey(player.id) && idToAction[player.id]) {
                     // player remains!
@@ -236,14 +239,39 @@ namespace DiscordBot.Games {
                 } else {
                     player.bankedGems += player.heldGems;
                     player.heldGems = 0;
+                    goingHome.Add(player);
                 }
             }
+            foreach (Card card in revealedCards) {
+                if (goingHome.Count > 0) {
+                    if (card.type == CardType.Treasure) {
+                        foreach (Player player in goingHome) {
+                            player.bankedGems += card.remainder / goingHome.Count();
+                        }
+                        card.remainder = card.remainder % goingHome.Count();
+                    } else if (card.type == CardType.Relic) {
+                        if (goingHome.Count() == 1) {
+                            card.type = CardType.Treasure;
+                            card.value = 0;
+                            card.remainder = 0;
+                            goingHome.First().bankedGems += relicValue();
+                        }
+                    }
+                }
+            }
+
             remainingPlayers = newRemaining.ToArray();
             if (remainingPlayers.Length == 0) {
                 NewRound();
             } else {
                 DrawCard();
             }
+        }
+
+        public int relicsGotten = 0;
+        public int relicValue() {
+            relicsGotten++;
+            return (relicsGotten < 4) ? 5 : 10;
         }
 
         bool secretTimerOn = false;
@@ -274,18 +302,19 @@ namespace DiscordBot.Games {
         private void DelveMessage(ulong messageId, string emote, ulong userId, bool adding) {
             if (idToPlayer.ContainsKey(userId) && remainingPlayers.Contains<Player>(idToPlayer[userId])) {
                 if (emote == "⛺" || emote == "🤠") {
-                    if (!secretTimerOn) {
-                        secretTimerOn = true;
-                        Task bar = new Task(BackgroundLoop);
-                        bar.Start();
-                    }
                     if (adding) {
                         if (idToAction.Remove(userId)) {
                             reactMessage.RemoveReactionAsync(new Emoji((emote == "🤠") ? "⛺": "🤠"), userId);
                         }
                         idToAction.Add(userId, emote == "🤠");
-                        if (idToAction.Count == remainingPlayers.Count()) {
+                        if (remainingPlayers.Count() == 1) {
+                            EndTurn();
+                        } else if (idToAction.Count == remainingPlayers.Count()) {
                             realTimerOn = true;
+                        } else if (!secretTimerOn) {
+                            secretTimerOn = true;
+                            Task bar = new Task(BackgroundLoop);
+                            bar.Start();
                         }
                     } else {
                         idToAction.Remove(userId);
@@ -333,7 +362,7 @@ namespace DiscordBot.Games {
             bd.Title = $"Game Over - {query.First().username} wins!";
             string scoreboard = "";
             for (int i = 1; i <= query.Count(); i++) {
-                scoreboard += $"\n{i}. {query.ElementAt(i - 1).username} - {query.ElementAt(i - 1).bankedGems} gems!";
+                scoreboard += $"\n{i}. {query.ElementAt(i - 1).username}: **{query.ElementAt(i - 1).bankedGems}** gems!";
             }
             bd.AddField("Scoreboard", scoreboard);
             parentChannel.channel.SendMessageAsync(null, false, bd.Build());
